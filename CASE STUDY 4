@@ -1,129 +1,166 @@
-class Employee:
-    """
-    Encapsulates employee data and salary operations. 
-    Demonstrates data hiding by keeping attributes private.
-    """
+import os
 
-    # Predefined rules for allowances and deductions (Class variables for easy extension)
-    HRA_RATE = 0.20        # 20% of Basic Salary
-    DA_RATE = 0.50         # 50% of Basic Salary
-    PF_RATE = 0.12         # 12% of Basic Salary
-    TAX_RATE_HIGH = 0.10   # 10% Tax if Gross > 50,000
-    TAX_RATE_LOW = 0.05    # 5% Tax if Gross <= 50,000
-    TAX_THRESHOLD = 50000  # Threshold for tax brackets
+# Define the file where tasks will be stored persistently
+FILE_NAME = "tasks.txt"
 
-    def __init__(self, emp_id, name, designation, basic_salary, bonus=0.0):
-        # Private attributes for data hiding
-        self.__emp_id = emp_id
-        self.__name = name
-        self.__designation = designation
-        self.__basic_salary = float(basic_salary)
-        self.__bonus = float(bonus)
+def initialize_file():
+    """Ensures the file exists before performing operations."""
+    if not os.path.exists(FILE_NAME):
+        # Create an empty file if it doesn't exist
+        with open(FILE_NAME, 'w') as file:
+            pass 
 
-        # Variables to hold calculated components
-        self.__hra = 0.0
-        self.__da = 0.0
-        self.__pf = 0.0
-        self.__tax = 0.0
-        self.__gross_salary = 0.0
-        self.__net_salary = 0.0
+def add_task():
+    """Adds a new task to the file (Create / Append)."""
+    print("\n--- Add New Task ---")
+    task_id = input("Enter Task ID: ").strip()
 
-    # Getter methods for essential encapsulated data
-    def get_name(self):
-        return self.__name
+    # Check if ID already exists
+    if _task_exists(task_id):
+        print("[!] Error: A task with this ID already exists.")
+        return
 
-    def get_emp_id(self):
-        return self.__emp_id
+    description = input("Enter Task Description: ").strip()
+    status = "Pending"  # Default status for a new task
 
-    def __calculate_salary_components(self):
-        """
-        Private method to automatically calculate all salary components 
-        based on predefined rules. (Abstraction)
-        """
-        # Calculate Allowances
-        self.__hra = self.__basic_salary * self.HRA_RATE
-        self.__da = self.__basic_salary * self.DA_RATE
+    # Append the new task to the file
+    with open(FILE_NAME, 'a') as file:
+        file.write(f"{task_id}|{description}|{status}\n")
+    print(f"[*] Task '{task_id}' added successfully!")
 
-        # Compute Gross Salary
-        self.__gross_salary = self.__basic_salary + self.__hra + self.__da + self.__bonus
+def view_tasks():
+    """Displays all tasks stored in the file (Read)."""
+    print("\n--- All Tasks ---")
+    if os.path.getsize(FILE_NAME) == 0:
+        print("No tasks found. Your to-do list is empty.")
+        return
 
-        # Calculate Deductions
-        self.__pf = self.__basic_salary * self.PF_RATE
+    print(f"{'Task ID':<10} | {'Description':<30} | {'Status'}")
+    print("-" * 60)
 
-        if self.__gross_salary > self.TAX_THRESHOLD:
-            self.__tax = self.__gross_salary * self.TAX_RATE_HIGH
+    with open(FILE_NAME, 'r') as file:
+        # Utilizing seek(0) to ensure we read from the beginning (meets objective requirement)
+        file.seek(0) 
+        for line in file:
+            task_id, desc, status = line.strip().split('|')
+            print(f"{task_id:<10} | {desc:<30} | {status}")
+
+def update_task():
+    """Modifies task description or marks as completed (Update)."""
+    print("\n--- Update Task ---")
+    task_id = input("Enter Task ID to update: ").strip()
+
+    if not _task_exists(task_id):
+        print("[!] Error: Task ID not found.")
+        return
+
+    tasks = _read_all_tasks()
+
+    with open(FILE_NAME, 'w') as file:
+        for task in tasks:
+            t_id, desc, status = task.strip().split('|')
+            if t_id == task_id:
+                print(f"Current Description: {desc}")
+                print(f"Current Status: {status}")
+
+                new_desc = input("Enter new description (or press Enter to keep current): ").strip()
+                new_status = input("Mark as 'Completed'? (y/n): ").strip().lower()
+
+                desc = new_desc if new_desc else desc
+                status = "Completed" if new_status == 'y' else status
+
+                print(f"[*] Task '{task_id}' updated successfully!")
+
+            # Write back to file
+            file.write(f"{t_id}|{desc}|{status}\n")
+
+def delete_task():
+    """Removes a task using Task ID (Delete)."""
+    print("\n--- Delete Task ---")
+    task_id = input("Enter Task ID to delete: ").strip()
+
+    if not _task_exists(task_id):
+        print("[!] Error: Task ID not found.")
+        return
+
+    tasks = _read_all_tasks()
+
+    with open(FILE_NAME, 'w') as file:
+        for task in tasks:
+            t_id, _, _ = task.strip().split('|')
+            if t_id != task_id:  # Only write tasks that DO NOT match the ID
+                file.write(task)
+
+    print(f"[*] Task '{task_id}' deleted successfully!")
+
+def search_task():
+    """Searches for a task by keyword or ID (Optional Advanced)."""
+    print("\n--- Search Tasks ---")
+    query = input("Enter Task ID or Keyword to search: ").strip().lower()
+
+    found = False
+    print(f"\n{'Task ID':<10} | {'Description':<30} | {'Status'}")
+    print("-" * 60)
+
+    with open(FILE_NAME, 'r') as file:
+        for line in file:
+            if query in line.lower():
+                task_id, desc, status = line.strip().split('|')
+                print(f"{task_id:<10} | {desc:<30} | {status}")
+                found = True
+
+    if not found:
+        print(f"No tasks found matching '{query}'.")
+
+# --- Helper Functions ---
+
+def _task_exists(task_id):
+    """Helper function to check if a task ID exists in the file."""
+    with open(FILE_NAME, 'r') as file:
+        for line in file:
+            t_id, _, _ = line.strip().split('|')
+            if t_id == task_id:
+                return True
+    return False
+
+def _read_all_tasks():
+    """Helper function to read all tasks into a list."""
+    with open(FILE_NAME, 'r') as file:
+        return file.readlines()
+
+# --- Main Program Loop ---
+
+def main():
+    initialize_file()
+
+    while True:
+        print("\n" + "="*30)
+        print("   TO-DO NOTES BUILDER")
+        print("="*30)
+        print("1. Add Task")
+        print("2. View Tasks")
+        print("3. Update Task")
+        print("4. Delete Task")
+        print("5. Search Task")
+        print("6. Exit")
+
+        choice = input("\nEnter your choice (1-6): ").strip()
+
+        if choice == '1':
+            add_task()
+        elif choice == '2':
+            view_tasks()
+        elif choice == '3':
+            update_task()
+        elif choice == '4':
+            delete_task()
+        elif choice == '5':
+            search_task()
+        elif choice == '6':
+            print("Exiting application. Your tasks are safely saved!")
+            break
         else:
-            self.__tax = self.__gross_salary * self.TAX_RATE_LOW
+            print("[!] Invalid choice. Please enter a number between 1 and 6.")
 
-        # Compute Net Salary
-        self.__net_salary = self.__gross_salary - (self.__pf + self.__tax)
-
-    def generate_payslip(self):
-        """Generates structured output for the employee."""
-        # Ensure calculations are up to date before generating payslip
-        self.__calculate_salary_components()
-
-        payslip = f"""
-{'='*50}
-EMPLOYEE PAYSLIP
-{'='*50}
-Employee ID : {self.__emp_id}
-Name        : {self.__name}
-Designation : {self.__designation}
-{'-'*50}
-EARNINGS
-Basic Salary: ${self.__basic_salary:,.2f}
-HRA         : ${self.__hra:,.2f}
-DA          : ${self.__da:,.2f}
-Bonus       : ${self.__bonus:,.2f}
-{'-'*50}
-GROSS SALARY: ${self.__gross_salary:,.2f}
-{'-'*50}
-DEDUCTIONS
-PF          : ${self.__pf:,.2f}
-Tax         : ${self.__tax:,.2f}
-{'-'*50}
-NET SALARY  : ${self.__net_salary:,.2f}
-{'='*50}
-"""
-        return payslip
-
-
-class SalaryManagementSystem:
-    """
-    System class to handle multiple employees dynamically.
-    Demonstrates scalability.
-    """
-    def __init__(self):
-        self.employee_database = []
-
-    def add_employee(self, emp_id, name, designation, basic_salary, bonus=0.0):
-        """Creates an Employee object and stores it in the list."""
-        new_employee = Employee(emp_id, name, designation, basic_salary, bonus)
-        self.employee_database.append(new_employee)
-        print(f"[*] Successfully added employee: {name} ({emp_id})")
-
-    def print_all_payslips(self):
-        """Iterates through all stored employees and prints their payslips."""
-        if not self.employee_database:
-            print("No employees currently in the system.")
-            return
-
-        print("\nGenerating Payroll Reports...\n")
-        for emp in self.employee_database:
-            print(emp.generate_payslip())
-
-
-# --- Driver Code (Execution) ---
 if __name__ == "__main__":
-    # Initialize the system
-    company_payroll = SalaryManagementSystem()
-
-    # Dynamically add employees
-    print("--- Initializing Employee Data ---")
-    company_payroll.add_employee(input(), input(), input(), int(input()), int(input()))
-    # company_payroll.add_employee("EMP002", "Priya Patel", "Data Analyst", 45000, 2500)
-    # company_payroll.add_employee("EMP003", "Rohan Gupta", "Project Manager", 85000, 10000)
-
-    # Output the structured payslips
-    company_payroll.print_all_payslips()
+    main()
